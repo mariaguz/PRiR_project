@@ -4,468 +4,128 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <string>
+#include <algorithm>
+#include <chrono>
 
 
 
-omp_lock_t lock;
+double* generate_data(int n, int low, int high) {
 
-void zad_1()
-{
-    omp_init_lock(&lock);
-    srand(time(nullptr));
-    int a=0,i;
-    omp_set_num_threads(4);
+	double* data = new double[n];
 
-//---------------------------------------------------------------------
-    printf("Petla firstprivate:\n");
-#pragma omp parallel for firstprivate(a)
-    for(i=0;i<10;i++)
-    {
-        printf("Watek %d a=%d\n",omp_get_thread_num(),a);
-        a++;
-    }
-    printf("Po petli firstprivate a=%d\n\n",a);
-//-------------------------------------------------------------------
-    printf("Petla private:\n");
-#pragma omp parallel for private(a)
-    for(a=0;a<10;a++)
-    {
-        printf("Watek %d a=%d\n",omp_get_thread_num(),a);
-    }
-    printf("Po petli private a=%d\n\n",a);
-//---------------------------------------------------------------------
-    printf("Petla lastprivate:\n");
-#pragma omp parallel for lastprivate(a)
-    for(i=0;i<10;i++)
-    {
-        //1. spróbuj zmienić tą wartość na zmienną losową i zobacz jak to działa
-        a = omp_get_thread_num();
+	for (int i = 0; i < n; i++) {
+		data[i] = ((double)(rand() % 10000) / 10000.0) * (high - low) + low;
+	}
 
-        printf("Watek %d a=%d\n",omp_get_thread_num(),a);
-    }
-    printf("Po petli lastprivate a=%d\n\n",a);
-//---------------------------------------------------------------------
-    printf("Petla shared:\n");
-    a=0;
-#pragma omp parallel for shared(a)
-    for(i=0;i<10;i++)
-    {
-        //2. Co się stanie gdy wyłączymy zamek?
-        omp_set_lock(&lock);
-        a=omp_get_thread_num();
-        printf("Watek %d a=%d\n",omp_get_thread_num(),a);
-        omp_unset_lock(&lock);
-    }
-
-    //3. Jaka bedzie wartosc "a" po kilkukrotnym wywołaniu programu?
-    printf("Po petli shared a=%d\n\n",a);
-//---------------------------------------------------------------------
-    printf("Petla bez zadnej klauzuli:\n");
-    a=0;
-#pragma omp parallel for
-    for(i=0;i<10;i++)
-    {
-        a++;
-        printf("Thread %d Iteration %d a=%d\n",omp_get_thread_num(),i,a);
-    }
-    //4. Jaka jest domysla klauzula?
-    printf("Po petli bez klauzuli a=%d\n",a);
+	return data;
 }
 
-double zad_2(int n, int m, int p){
+double computeAVG_indexes(int n, double* data, int first, int last) {
+	auto beginTime = std::chrono::high_resolution_clock::now();
+
+	float avg = 0;
+	int counter = 0;
+
+	if (first < 0 || last >= n) {
+		std::cout << "\n(Srednia z zakresu indeksow) ERROR: Indeksy poza zakresem.\n";
+		return -1;
+	}
+	else {
+		if (first > last) {
+			std::cout << "\n(Srednia z zakresu indeksow) ERROR: Indeks 'last' jest mniejszy od 'first'\n";
+			return -1;
+		}
+		else {
+			for (int i = first; i <= last; i++) {
+				avg += data[i];
+				counter++;
+			}
+
+			avg = avg / counter;
+
+			std::cout << "\nSrednia (zakres indeksow) = " << avg;
+			auto endTime = std::chrono::high_resolution_clock::now();
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+
+			printf("\nCzas: %f\n", time.count() * 1e-3);
+			return avg;
+		}
+	}
+
+	
 
-    const size_t N = 100;
-    const size_t M = 500;
-    const size_t P = 140;
-
-    int m_1[N][M];
-    int m_2[M][P];
-    int m_3[N][P];
-
-
-    for (auto & i : m_1){
-        for (int & j : i){
-            j = 2;
-        }
-    }
-
-    for (auto & i : m_2){
-        for (int & j : i){
-            j = 3;
-        }
-    }
-
-
-    double t_0 = omp_get_wtime();
-    for(int i=0;i<N;i++){
-        for(int j=0;j<P;j++){
-            for(int k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    double t_1 = omp_get_wtime();
-    double t = t_1 - t_0;
-    printf("Bez zrownoleglenia:\n czas: %f\n\n", t);
-
-    int m_check[N][P];
-
-    for(int i=0;i<N;i++){
-        for(int j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-            m_check[i][j] = m_3[i][j];
-        }
-        std:: cout << "\n";
-    }
-
-    std:: cout << "\n\n";
-
-
-
-
-
-
-
-//    ================================ zrownoleglenie petli zewnetrznej
-// -----------------shared static
-
-
-
-
-    t_0 = omp_get_wtime();
-    #pragma omp parallel for shared(m_1, m_2, m_3) schedule(static)
-    for(int i=0;i<N;i++){
-        for(int j=0;j<P;j++){
-            for(int k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla zewnetrzna \n #pragma omp parallel for shared(m_1, m_2, m_3) schedule(static):\n czas: %f\n\n", t);
-
-//    for(auto & i : m_3){
-//        for(int j : i){
-//            std::cout << j;
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for(int i=0;i<N;i++){
-//        for(int j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-
-    std:: cout << "\n\n";
-//    ================================ zrownoleglenie petli zewnetrznej
-// -----------------shared dynamic
-
-
-
-
-    t_0 = omp_get_wtime();
-    #pragma omp parallel for shared(m_1, m_2, m_3) schedule(dynamic)
-    for(int i=0;i<N;i++){
-        for(int j=0;j<P;j++){
-            for(int k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla zewnetrzna \n #pragma omp parallel for shared(m_1, m_2, m_3) schedule(dynamic):\n czas: %f\n\n", t);
-
-
-//    for(auto & i : m_3){
-//        for(int j : i){
-//            std::cout << j;
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for(int i=0;i<N;i++){
-//        for(int j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-
-    std:: cout << "\n\n";
-
-//    ================================ zrownoleglenie petli zewnetrznej
-// -----------------private dynamic
-int i,j,k;
-
-
-
-    t_0 = omp_get_wtime();
-#pragma omp parallel for private(i,j,k) schedule(static)
-    for( i=0;i<N;i++){
-        for( j=0;j<P;j++){
-            for( k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla zewnetrzna \n #pragma omp parallel for private(i,j,k) schedule(static):\n czas: %f\n\n", t);
-
-
-//    for(i=0;i<N;i++){
-//        for(j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for( i=0;i<N;i++){
-//        for( j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-    std:: cout << "\n\n";
-
-//    ================================ zrownoleglenie petli zewnetrznej
-// -----------------private dynamic
-
-
-
-
-    t_0 = omp_get_wtime();
-#pragma omp parallel for private(i,j,k) schedule(dynamic)
-    for( i=0;i<N;i++){
-        for( j=0;j<P;j++){
-            for( k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla zewnetrzna \n #pragma omp parallel for private(i,j,k) schedule(dynamic):\n czas: %f\n\n", t);
-
-
-//    for(i=0;i<N;i++){
-//        for(j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for( i=0;i<N;i++){
-//        for( j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-
-    std:: cout << "\n\n";
-
-////    ================================ zrownoleglenie petli wewnetrznej
-//
-//
-//
-//// -----------------shared static
-
-    t_0 = omp_get_wtime();
-
-    for( i=0;i<N;i++){
-        #pragma omp parallel for shared(m_1, m_2, m_3) schedule(static)
-        for( j=0;j<P;j++){
-            for( k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla wewnetrzna \n #pragma omp parallel for shared(m_1, m_2, m_3) schedule(static):\n czas: %f\n\n", t);
-
-//    for(i=0;i<N;i++){
-//        for(j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for( i=0;i<N;i++){
-//        for( j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-
-    std:: cout << "\n\n";
-
-
-
-    //    ================================ zrownoleglenie petli wewnetrznej
-
-
-
-// -----------------shared dynamic
-
-    t_0 = omp_get_wtime();
-
-    for( i=0;i<N;i++){
-#pragma omp parallel for shared(m_1, m_2, m_3) schedule(dynamic)
-        for( j=0;j<P;j++){
-            for( k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla wewnetrzna \n #pragma omp parallel for shared(m_1, m_2, m_3) schedule(dynamic):\n czas: %f\n\n", t);
-
-//    for(i=0;i<N;i++){
-//        for(j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for( i=0;i<N;i++){
-//        for( j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-
-    std:: cout << "\n\n";
-
-
-    ////    ================================ zrownoleglenie petli wewnetrznej
-//
-//
-//
-//// -----------------private static
-
-    t_0 = omp_get_wtime();
-
-    for( i=0;i<N;i++){
-#pragma omp parallel for private(j,k) schedule(static)
-        for( j=0;j<P;j++){
-            for( k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla wewnetrzna \n #pragma omp parallel for private(j,k) schedule(static):\n czas: %f\n\n", t);
-
-//    for(i=0;i<N;i++){
-//        for(j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for( i=0;i<N;i++){
-//        for( j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-    std:: cout << "\n\n";
-
-
-    ////    ================================ zrownoleglenie petli wewnetrznej
-//
-//
-//
-//// -----------------private dynamic
-
-    t_0 = omp_get_wtime();
-
-    for( i=0;i<N;i++){
-#pragma omp parallel for private(j,k) schedule(dynamic)
-        for( j=0;j<P;j++){
-            for( k=0; k<M; k++){
-                m_3[i][j] = m_1[i][k] * m_2[k][j];
-            }
-        }
-    }
-    t_1 = omp_get_wtime();
-    t = t_1 - t_0;
-    printf("Petla wewnetrzna \n #pragma omp parallel for private(j,k) schedule(dynamic):\n czas: %f\n\n", t);
-
-//    for(i=0;i<N;i++){
-//        for(j=0;j<P;j++){
-//            std::cout << m_3[i][j];
-//        }
-//        std:: cout << "\n";
-//    }
-//
-//    for( i=0;i<N;i++){
-//        for( j=0;j<P;j++){
-//            if(m_check[i][j] == m_3[i][j]){
-//                printf(" | ok | ");
-//            }
-//        }
-//        std:: cout << "\n";
-//    }
-
-    std:: cout << "\n\n";
-    return 0;
-////    return ts;
 
 }
 
-float* generate(int n){
-    auto* data = new float[n];
+double computeAVG_values(int n, double* data, int val_min, int val_max) {
+	auto beginTime = std::chrono::high_resolution_clock::now();
+	
+	float avg = 0;
+	int counter = 0;
 
-    for (int i = 0; i < n; i++) {
-        data[i] = float(rand() % 100) / 5;
-    }
+	float min = *std::min_element(data, data + n);
+	float max = *std::max_element(data, data + n);
+	//std::cout << "\nMin = " << min << "\nMax = " << max;
 
-    return data;
+	if (val_min < min || val_max > max) {
+		std::cout << "\n(Srednia z zakresu wartosci) ERROR: Wartosci poza zakresem.\n";
+		return -1;
+	}
+	else {
+		if (val_min > val_max) {
+			std::cout << "\n(Srednia z zakresu wartosci) ERROR: Wartosc min > max.\n";
+			return -1;
+		}
+		else {
+			for (int i = 0; i < n; i++) {
+				if (data[i] >= min && data[i] <= max) {
+
+
+					avg += data[i];
+					counter++;
+				}
+			}
+
+			avg = avg / counter;
+
+			std::cout << "\nSrednia (zakres wartosci) = " << avg;
+			auto endTime = std::chrono::high_resolution_clock::now();
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+
+			printf("\nCzas: %f\n", time.count() * 1e-3);
+			
+			return avg;
+		}
+	}
+
 }
 
-int main(){
-
-//    zad_2(2, 3, 4);
-//    double t1[] = zad_2(2, 3, 4);
-//    double t3[] = zad_2(3, 4, 5);
-//    double t5[] = zad_2(5, 6, 7);
-//
-//    std::cout << t1[0];
-//    std::cout << t1[1];
-//    std::cout << t3[0];
-//    std::cout << t3[1];
-//    std::cout << t5[0];
-//    std::cout << t5[1];
-
-float* data1 = generate(1000000);
-float* data2 = generate(2000000);
-float* data3 = generate(3000000);
-//for(int i = 0; i < 10; i++){
-//    std::cout << data[i] << " ";
-//}
+int main() {
 
 
 
-    return 0;
+	double* data1 = generate_data(1000000, 0, 1000);
+	double* data2 = generate_data(2000000, 0, 2000);
+	double* data3 = generate_data(3000000, 0 ,3000);
+
+
+	float avg11 = computeAVG_indexes(1000000, data1, 10000, 10);
+	float avg12 = computeAVG_values(1000000, data1, 9, 0);
+
+	std::cout << "=====================\n";
+	float avg21 = computeAVG_indexes(2000000, data2, 0, 400000);
+	float avg22 = computeAVG_values(2000000, data2, 6, 9);
+
+	std::cout << "=====================\n";
+	float avg31 = computeAVG_indexes(3000000, data3, 0, 1700000);
+	float avg32 = computeAVG_values(3000000, data3, 6, 9);
+
+
+
+
+
+
+
+
+	return 0;
 }
