@@ -7,6 +7,11 @@
 #include <algorithm>
 #include <chrono>
 
+omp_lock_t lock;
+
+#define THREADS 4
+#define SIZE 1000000
+
 
 
 double* generate_data(int n, int low, int high) {
@@ -103,24 +108,42 @@ double computeAVG_values(int n, double* data, int val_min, int val_max) {
 int main() {
 
 
-
-	double* data1 = generate_data(1000000, 0, 1000);
-	double* data2 = generate_data(2000000, 0, 2000);
-	double* data3 = generate_data(3000000, 0 ,3000);
+	////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = sequence = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+	double* data = generate_data(SIZE, 0, 1000);
 
 
-	float avg11 = computeAVG_indexes(1000000, data1, 10000, 10);
-	float avg12 = computeAVG_values(1000000, data1, 9, 0);
-
-	std::cout << "=====================\n";
-	float avg21 = computeAVG_indexes(2000000, data2, 0, 400000);
-	float avg22 = computeAVG_values(2000000, data2, 6, 9);
-
-	std::cout << "=====================\n";
-	float avg31 = computeAVG_indexes(3000000, data3, 0, 1700000);
-	float avg32 = computeAVG_values(3000000, data3, 6, 9);
+	//float avg1 = computeAVG_indexes(SIZE, data, 10000, 10);
+	//float avg2 = computeAVG_values(SIZE, data, 9, 0);
 
 
+	
+	
+	////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = OpenMP = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+	double* avgs_OpenMP = new double [THREADS];
+	
+	
+	
+	auto beginTime = std::chrono::high_resolution_clock::now();
+
+	omp_init_lock(&lock);
+	omp_set_num_threads(THREADS);
+
+#pragma omp parallel
+	{
+		//pobranie ID wątku
+		int rank = omp_get_thread_num();
+		//printf("thread %d", omp_get_thread_num());
+
+		// obliczenie przedziałów dla których srednie beda liczone rownolegle
+		
+		int begin = round((SIZE / THREADS) * rank);
+		int end = round(((SIZE / THREADS) * rank) + SIZE/THREADS);
+		//printf("thread: %d, begin: %d, end: %d \n",rank,begin, end);
+
+		for(int i = begin; i <end; i++)
+		
+
+	}
 
 
 
