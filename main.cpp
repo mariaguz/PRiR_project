@@ -513,18 +513,22 @@ double* computeAVG_values(int n, double* data, int val_min, int val_max) {
 					counter++;
 				}
 			}
-			std::cout<<"\nsum: " << sum;
-			std::cout << "\ncount: " << counter;
-			avg = sum / counter;
 
+			avg = sum / counter;
 			std::cout << "\nSrednia (zakres wartosci) = " << avg;
+
 			auto endTime = std::chrono::high_resolution_clock::now();
 			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-
 			printf("\nCzas: %f\n", time.count() * 1e-3);
-			
-			double results[4] = { avg, sum, counter, time.count() * 1e-3 };
-			
+
+			double* results = new double[4];
+
+			results[0] = avg;
+			results[1] = sum;
+			results[2] = counter;
+			results[3] = time.count() * 1e-3;
+
+			std::cout << results[0] << " " << results[1] << " " << results[2] << " " << results[3];
 			return results;
 		}
 	}
@@ -543,7 +547,7 @@ int main() {
 	
 	double* results = computeAVG_values(SIZE, data, 0, 10);
 
-	std::cout << results[0] << " " << results[1] << " " << results[2];
+	//std::cout << results[0] << " " << results[1] << " " << results[2] <<" "<<results[3];
 
 	
 	
