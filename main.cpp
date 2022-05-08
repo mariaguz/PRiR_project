@@ -1,4 +1,5 @@
 #include <omp.h>
+#include "mpi.h" 
 #include <iostream>
 #include <ctime>
 #include <stdexcept>
@@ -62,81 +63,130 @@ double* computeAVG_values(int n, double* data, int val_min, int val_max) {
 
 }
 
-int main() {
+double* generate_data(int n, int low, int high) {
+	double* data = new double[n];
+	for (int i = 0; i < n; i++) {
+		data[i] = ((double)(rand() % 10000) / 10000.0) * (high - low) + low;
+	}
+	return data;
+}
+
+double* split_data(double* data, int begin, int end) {
+	int size = end - begin;
+	double* subset = new double[size];
+	for (int i = 0; i < size; i++)
+	{
+		subset[i] = data[i + begin];
+	}
+	return subset;
+}
+
+int main(int argc, char** argv) {
+	int rank, ranksent, size, source, dest, tag, i, len, src, number = 5;
+	std::string num;
+	len = 1000;
+	tag = 0;
+	MPI_Status status;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	if (rank == 0) {
+		////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = sequence = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+		double* data = generate_data(SIZE, 0, RANGE);
 
 
-	////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = sequence = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-	double* data = generate_data(SIZE, 0, RANGE);
+		double* results_seq = computeAVG_values(SIZE, data, 1000, 9000);
+
+		//Wypisanie rezultatów
+		printf("\nCzas Sekwencyjne: %f", results_seq[3]);
+		printf("\nAVG Sekwencyjne: %f", results_seq[0]);
 
 
-	double* results_seq = computeAVG_values(SIZE, data, 1000, 9000);
-
-	//Wypisanie rezultatów
-	printf("\nCzas Sekwencyjne: %f", results_seq[3]);
-	printf("\nAVG Sekwencyjne: %f", results_seq[0]);
-	
-	
-	
-	
-	
-	////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = OpenMP = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-	//double* data = generate_data(SIZE, 0, 1000);
-	double* sums_OpenMP = new double [THREADS];
-	double* counts_OpenMP = new double[THREADS];
 
 
-	
-	auto beginTime = std::chrono::high_resolution_clock::now();
 
-	omp_init_lock(&lock);
-	omp_set_num_threads(THREADS);
+		////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = OpenMP = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+		//double* data = generate_data(SIZE, 0, 1000);
+		double* sums_OpenMP = new double[THREADS];
+		double* counts_OpenMP = new double[THREADS];
+
+
+
+		auto beginTime = std::chrono::high_resolution_clock::now();
+
+		omp_init_lock(&lock);
+		omp_set_num_threads(THREADS);
 
 #pragma omp parallel
-	{
-		//pobranie ID wątku
-		int rank = omp_get_thread_num();
-		double size = SIZE;
-		double threads = THREADS;
+		{
+			//pobranie ID wątku
+			int rank = omp_get_thread_num();
+			double size = SIZE;
+			double threads = THREADS;
 
 
 
-		// obliczenie przedziałów dla których srednie beda liczone rownolegle
-		int begin = round(double(size / threads) * rank);
-		int end = round(double(size / threads) * rank + size / threads);
-		int subsize = end - begin;
+			// obliczenie przedziałów dla których srednie beda liczone rownolegle
+			int begin = round(double(size / threads) * rank);
+			int end = round(double(size / threads) * rank + size / threads);
+			int subsize = end - begin;
 
-		//podział zbioru
-		double* splitted_data = new double[subsize];
-		splitted_data = split_data(data, begin, end);
+			//podział zbioru
+			double* splitted_data = new double[subsize];
+			splitted_data = split_data(data, begin, end);
 
-		//obliczenie wyników w każdym wątku
-		double* results = computeAVG_values(subsize, splitted_data, 1000, 9000);
-		
-		sums_OpenMP[rank] = results[1];
-		counts_OpenMP[rank] = results[2];
+			//obliczenie wyników w każdym wątku
+			double* results = computeAVG_values(subsize, splitted_data, 1000, 9000);
 
+			sums_OpenMP[rank] = results[1];
+			counts_OpenMP[rank] = results[2];
+
+		}
+
+		//obliczenie średniej ogólnej
+		double sum_OpenMP = 0;
+		double count_OpenMP = 0;
+
+		for (int i = 0; i < THREADS; i++) {
+			sum_OpenMP = sum_OpenMP + sums_OpenMP[i];
+			count_OpenMP = count_OpenMP + counts_OpenMP[i];
+		}
+
+		double avg_OpenMP = sum_OpenMP / count_OpenMP;
+
+
+		auto endTime = std::chrono::high_resolution_clock::now();
+		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+
+		//Wypisanie rezultatów
+		printf("\nCzas OpenMP: %f", time.count() * 1e-3);
+		printf("\nAVG OpenMP: %f", avg_OpenMP);
 	}
+	////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = MPI = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
-	//obliczenie średniej ogólnej
-	double sum_OpenMP=0;
-	double count_OpenMP = 0;
-
-	for (int i = 0; i < THREADS; i++) {
-		sum_OpenMP = sum_OpenMP + sums_OpenMP[i];
-		count_OpenMP = count_OpenMP + counts_OpenMP[i];
+	MPI_Barrier(MPI_COMM_WORLD);
+	double start = MPI_Wtime();
+	int* array = new int[len];
+	if (rank == 0) {
+		for (i = 0; i < len; i++) {
+			array[i] = rand() % 101;
+		}
 	}
+	MPI_Bcast(array, len, MPI_INT, 0, MPI_COMM_WORLD);
+	if (rank != 0) {
+		int sum = 0;
+		for (i = 0; i < len; i++) {
+			sum += array[i];
+		}
+		printf("Suma w watku %d wynosi %d", rank, sum);
+	}
+	MPI_Barrier(MPI_COMM_WORLD);
+	double end = MPI_Wtime();
 
-	double avg_OpenMP = sum_OpenMP / count_OpenMP;
-
-
-	auto endTime = std::chrono::high_resolution_clock::now();
-	auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-
-	//Wypisanie rezultatów
-	printf("\nCzas OpenMP: %f", time.count() * 1e-3);
-	printf("\nAVG OpenMP: %f", avg_OpenMP);
-
-
+	MPI_Finalize();
+	if (rank == 0)
+		printf("czas: %f", end - start);
 
 	return 0;
 }
