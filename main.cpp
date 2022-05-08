@@ -9,10 +9,82 @@
 
 omp_lock_t lock;
 
-#define THREADS 4
-#define SIZE 1000000
-#define RANGE 10000
+#define THREADS 4 //ilość wątków
+#define SIZE 3000000 //ilość liczb zmiennoprzecinkowych w zbiorze
+#define RANGE 10000 //zakres do jakiego generowane są wartości
 
+
+double* generate_data(int n, int low, int high) {
+
+	double* data = new double[n];
+
+	for (int i = 0; i < n; i++) {
+		data[i] = ((double)(rand() % 10000) / 10000.0) * (high - low) + low;
+	}
+
+	return data;
+}
+
+double* split_data(double* data, int begin, int end) {
+
+	int range = end - begin;
+
+	if (begin > end) {
+		std::cout << "\n(Split_data) ERROR: Begin>end.\n";
+		return NULL;
+	}
+	else {
+		double* splitted_data = new double[range];
+		int j = 0;
+
+		for (int i = begin; i < end; i++) {
+			splitted_data[j] = data[i];
+			j++;
+		}
+
+		return splitted_data;
+	}
+	
+}
+
+/*
+double computeAVG_indexes(int n, double* data, int first, int last) {
+	auto beginTime = std::chrono::high_resolution_clock::now();
+
+	float avg = 0;
+	int counter = 0;
+
+	if (first < 0 || last >= n) {
+		std::cout << "\n(Srednia z zakresu indeksow) ERROR: Indeksy poza zakresem.\n";
+		return -1;
+	}
+	else {
+		if (first > last) {
+			std::cout << "\n(Srednia z zakresu indeksow) ERROR: Indeks 'last' jest mniejszy od 'first'\n";
+			return -1;
+		}
+		else {
+			for (int i = first; i <= last; i++) {
+				avg += data[i];
+				counter++;
+			}
+
+			avg = avg / counter;
+
+			std::cout << "\nSrednia (zakres indeksow) = " << avg;
+			auto endTime = std::chrono::high_resolution_clock::now();
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+
+			printf("\nCzas: %f\n", time.count() * 1e-3);
+			return avg;
+		}
+	}
+
+	
+
+
+}
+*/
 
 double* computeAVG_values(int n, double* data, int val_min, int val_max) {
 	auto beginTime = std::chrono::high_resolution_clock::now();
@@ -134,7 +206,7 @@ int main() {
 
 	//Wypisanie rezultatów
 	printf("\nCzas OpenMP: %f", time.count() * 1e-3);
-	printf("\nAVG OpenMP: %f", avg_OpenMP);
+	printf("\nAVG OpenMP: %f\n", avg_OpenMP);
 
 
 
