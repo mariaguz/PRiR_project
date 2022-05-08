@@ -82,7 +82,8 @@ double* split_data(double* data, int begin, int end) {
 }
 
 int main(int argc, char** argv) {
-	int rank, ranksent, size, source, dest, tag, i, len, src, number = 5;
+	int rank, ranksent, size, source, tag, i, len, src, number = 5;
+    double* data;
 	std::string num;
 	len = 1000;
 	tag = 0;
@@ -93,7 +94,7 @@ int main(int argc, char** argv) {
 
 	if (rank == 0) {
 		////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = sequence = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-		double* data = generate_data(SIZE, 0, RANGE);
+		data = generate_data(SIZE, 0, RANGE);
 
 
 		double* results_seq = computeAVG_values(SIZE, data, 1000, 9000);
@@ -121,15 +122,11 @@ int main(int argc, char** argv) {
 #pragma omp parallel
 		{
 			//pobranie ID wątku
-			int rank = omp_get_thread_num();
-			double size = SIZE;
-			double threads = THREADS;
-
-
+			int tread_num = omp_get_thread_num();
 
 			// obliczenie przedziałów dla których srednie beda liczone rownolegle
-			int begin = round(double(size / threads) * rank);
-			int end = round(double(size / threads) * rank + size / threads);
+			int begin = round(double(SIZE / THREADS) * tread_num);
+			int end = round(double(SIZE / THREADS) * tread_num + SIZE / THREADS);
 			int subsize = end - begin;
 
 			//podział zbioru
@@ -139,8 +136,8 @@ int main(int argc, char** argv) {
 			//obliczenie wyników w każdym wątku
 			double* results = computeAVG_values(subsize, splitted_data, 1000, 9000);
 
-			sums_OpenMP[rank] = results[1];
-			counts_OpenMP[rank] = results[2];
+			sums_OpenMP[tread_num] = results[1];
+			counts_OpenMP[tread_num] = results[2];
 
 		}
 
@@ -168,25 +165,57 @@ int main(int argc, char** argv) {
 	MPI_Barrier(MPI_COMM_WORLD);
 	double start = MPI_Wtime();
 	int* array = new int[len];
+	int count = SIZE/size;
+	int rest = SIZE - count * size;
+	double * local_array;
 	if (rank == 0) {
-		for (i = 0; i < len; i++) {
-			array[i] = rand() % 101;
-		}
+	    int cnt;
+        for(int dest = 1; dest < size; ++dest)
+        {
+            if(dest < size - 1) {
+                cnt = count;
+            } else {
+                cnt = count + rest;
+            }
+
+            MPI_Send(&data[(dest - 1) * cnt], cnt, MPI_DOUBLE, dest, tag, MPI_COMM_WORLD);
+            //printf("\nP0 sent a %d elements to P%d.", cnt, dest);
+        }
 	}
-	MPI_Bcast(array, len, MPI_INT, 0, MPI_COMM_WORLD);
+
 	if (rank != 0) {
-		int sum = 0;
-		for (i = 0; i < len; i++) {
-			sum += array[i];
-		}
-		printf("Suma w watku %d wynosi %d", rank, sum);
+	    int cnt;
+	    if(rank == size - 1){
+	        local_array = new double [count + rest];
+	        cnt = count + rest;
+	    } else {
+	        cnt = count;
+	        local_array = new double [count];
+	    }
+        MPI_Recv(local_array, cnt, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	    double* results = computeAVG_values(cnt, local_array, 1000, 9000);
+        MPI_Send(&results[0], 4, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
+
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
-	double end = MPI_Wtime();
 
-	MPI_Finalize();
-	if (rank == 0)
-		printf("czas: %f", end - start);
 
+	if (rank == 0) {
+	    double sum = 0;
+	    double count = 0;
+        for(int src = 1; src < size; ++src)
+        {
+            double* results = new double[4];
+            MPI_Recv(results, 4, MPI_DOUBLE, src, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            sum += results[1];
+            count += results[2];
+        }
+
+        double avg_MPI = sum/count;
+        double end = MPI_Wtime();
+        printf("\nCzas MPI: %f", end - start);
+        printf("\nAVG MPI: %f", avg_MPI);
+    }
+    MPI_Finalize();
 	return 0;
 }
