@@ -7,11 +7,12 @@
 #include <string>
 #include <algorithm>
 #include <chrono>
+#include <locale.h>
 
 omp_lock_t lock;
 
-#define THREADS 8
-#define SIZE 3000000
+#define THREADS 4
+#define SIZE 3e6
 #define RANGE 10000
 #define LB 2000
 #define UB 5000
@@ -83,6 +84,8 @@ double* split_data(double* data, int begin, int end) {
 }
 
 int main(int argc, char** argv) {
+
+    setlocale (LC_ALL,"");
     omp_init_lock(&lock);
 	int rank, size, tag;
     double* data;
@@ -92,7 +95,9 @@ int main(int argc, char** argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	if (rank == 0) {
+
+    if (rank == 0) {
+        std::cout << "Watki " << THREADS << "\tProcesy " << size;
 		////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = sequence = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 		data = generate_data(SIZE, 0, RANGE);
 
