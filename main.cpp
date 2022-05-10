@@ -18,6 +18,79 @@ omp_lock_t lock;
 #define UB 5000
 
 
+
+double* generate_data(int n, int low, int high) {
+
+	double* data = new double[n];
+
+	for (int i = 0; i < n; i++) {
+		data[i] = ((double)(rand() % 10000) / 10000.0) * (high - low) + low;
+	}
+
+	return data;
+}
+
+double* split_data(double* data, int begin, int end) {
+
+	int range = end - begin;
+
+	if (begin > end) {
+		std::cout << "\n(Split_data) ERROR: Begin>end.\n";
+		return NULL;
+	}
+	else {
+		double* splitted_data = new double[range];
+		int j = 0;
+
+		for (int i = begin; i < end; i++) {
+			splitted_data[j] = data[i];
+			j++;
+		}
+
+		return splitted_data;
+	}
+	
+}
+
+/*
+double computeAVG_indexes(int n, double* data, int first, int last) {
+	auto beginTime = std::chrono::high_resolution_clock::now();
+
+	float avg = 0;
+	int counter = 0;
+
+	if (first < 0 || last >= n) {
+		std::cout << "\n(Srednia z zakresu indeksow) ERROR: Indeksy poza zakresem.\n";
+		return -1;
+	}
+	else {
+		if (first > last) {
+			std::cout << "\n(Srednia z zakresu indeksow) ERROR: Indeks 'last' jest mniejszy od 'first'\n";
+			return -1;
+		}
+		else {
+			for (int i = first; i <= last; i++) {
+				avg += data[i];
+				counter++;
+			}
+
+			avg = avg / counter;
+
+			std::cout << "\nSrednia (zakres indeksow) = " << avg;
+			auto endTime = std::chrono::high_resolution_clock::now();
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+
+			printf("\nCzas: %f\n", time.count() * 1e-3);
+			return avg;
+		}
+	}
+
+	
+
+
+}
+*/
+
 double* computeAVG_values(int n, double* data, int val_min, int val_max) {
 
 	auto beginTime = std::chrono::high_resolution_clock::now();
@@ -281,8 +354,7 @@ int main(int argc, char** argv) {
         MPI_Send(&results[0], 2, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
 
     }
-    MPI_Barrier(MPI_COMM_WORLD);
-
+    MPI_Barrier(MPI_COMM_WORLD)
 
     if (rank == 0) {
         double sum = 0;
