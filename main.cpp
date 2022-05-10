@@ -6,7 +6,7 @@
 #include <chrono>
 #include <locale.h>
 
-#define THREADS 4
+#define THREADS 7
 #define SIZE 1e6
 #define RANGE 10000
 #define LB 2000
@@ -53,10 +53,10 @@ int main(int argc, char** argv) {
             }
         }
         avg_seq = sum_seq / count_seq;
-        auto time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        auto time = std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::high_resolution_clock::now() - beginTime);
         //Wypisanie rezultatów
-        printf("\nCzas Sekwencyjne: %f", time.count() * 1e-3);
+        printf("\nCzas Sekwencyjne: %f", time.count() * 1e-6);
         printf("\nAVG Sekwencyjne: %.2f", avg_seq);
 
 
@@ -74,9 +74,9 @@ int main(int argc, char** argv) {
             }
         }
         avg_OpenMP = sum_OpenMP / count_OpenMP;
-        time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - beginTime_OMP);
+        time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - beginTime_OMP);
 		//Wypisanie rezultatów
-		printf("\nCzas OpenMP: %f", time.count() * 1e-3);
+		printf("\nCzas OpenMP: %f", time.count() * 1e-6);
 		printf("\nAVG OpenMP: %.2f", avg_OpenMP);
 	}
 	////= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = MPI = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -91,7 +91,8 @@ int main(int argc, char** argv) {
     double end;
     int cnt;
 
-    double start = MPI_Wtime();
+//    double start = MPI_Wtime();
+    auto s = std::chrono::high_resolution_clock::now();
 
 	if (rank == 0) {
         for (i = 0; i < count; ++i) {
@@ -108,7 +109,7 @@ int main(int argc, char** argv) {
                 cnt = count + rest;
             }
 
-            MPI_Send(&data[(dest - 1) * cnt], cnt, MPI_DOUBLE, dest, tag, MPI_COMM_WORLD);
+            MPI_Send(&data[(dest) * cnt], cnt, MPI_DOUBLE, dest, tag, MPI_COMM_WORLD);
             //printf("\nP0 sent a %d elements to P%d.", cnt, dest);
         }
 	}
@@ -145,8 +146,11 @@ int main(int argc, char** argv) {
         }
 
         avg_MPI = sum / count_in_tread;
-        end = MPI_Wtime();
-        printf("\nCzas MPI: %f", end - start);
+        auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::high_resolution_clock::now() - s);
+//        end = MPI_Wtime();
+
+        printf("\nCzas MPI: %f", time.count() * 1e-6);
         printf("\nAVG MPI: %.2f", avg_MPI);
     }
 
@@ -156,8 +160,10 @@ int main(int argc, char** argv) {
 
 	double sum_hybrid = 0, cnt_hybrid = 0;
 
-    start = MPI_Wtime();
+//    start = MPI_Wtime();
+    s = std::chrono::high_resolution_clock::now();
     if (rank == 0) {
+#pragma omp parallel for num_threads(THREADS) reduction(+:sum) reduction(+:count_in_tread)
         for (i = 0; i < count; ++i) {
             if (data[i] >= LB && data[i] <= UB) {
                 sum += data[i];
@@ -172,7 +178,7 @@ int main(int argc, char** argv) {
                 cnt = count + rest;
             }
 
-            MPI_Send(&data[(dest - 1) * cnt], cnt, MPI_DOUBLE, dest, tag, MPI_COMM_WORLD);
+            MPI_Send(&data[(dest) * cnt], cnt, MPI_DOUBLE, dest, tag, MPI_COMM_WORLD);
             //printf("\nP0 sent a %d elements to P%d.", cnt, dest);
         }
     }
@@ -213,8 +219,11 @@ int main(int argc, char** argv) {
         }
 
         avg_MPI = sum / count_in_tread;
-        end = MPI_Wtime();
-        printf("\nCzas HYBRID: %f", end - start);
+        auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::high_resolution_clock::now() - s);
+//        end = MPI_Wtime();
+
+        printf("\nCzas HYBRID: %f", time.count() * 1e-6);
         printf("\nAVG HYBRID: %.2f", avg_MPI);
     }
 
