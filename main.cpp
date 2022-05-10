@@ -7,7 +7,8 @@
 #include <locale.h>
 
 #define THREADS 7
-#define SIZE 1e6
+
+#define SIZE 2e6
 #define RANGE 10000
 #define LB 2000
 #define UB 5000
